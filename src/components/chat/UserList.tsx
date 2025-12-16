@@ -60,18 +60,17 @@ export const UserList = ({
                             <UserListItem
                                 key={user.id}
                                 user={{
-                                    id: user.id,
+                                    id: parseInt(user.id),
                                     name: user.username,
-                                    avatar: user.avatar,
-                                    status: user.status,
                                     role: 'User',
                                     email: user.email,
                                     online: user.online,
-                                    lastMessage: user.lastMessage
+                                    lastMessage: user.lastMessage,
+                                    unreadCount: user.unreadCount,
+                                    lastActive: user.lastActive,
+                                    isTyping: user.isTyping
                                 }}
                                 onClick={() => onUserClick(user)}
-                                onViewDetails={() => { }}
-                                showDetailsButton={false}
                                 isSelected={selectedChat?.id === user.id && selectedChat?.type === 'user'}
                                 showOnlineStatus={true}
                             />
@@ -95,18 +94,17 @@ export const UserList = ({
                         <UserListItem
                             key={user.id}
                             user={{
-                                id: user.id,
+                                id: parseInt(user.id),
                                 name: user.username,
-                                avatar: user.avatar,
-                                status: user.status,
                                 role: 'User',
                                 email: user.email,
                                 online: user.online,
-                                lastMessage: user.lastMessage
+                                lastMessage: user.lastMessage,
+                                unreadCount: user.unreadCount,
+                                lastActive: user.lastActive,
+                                isTyping: user.isTyping
                             }}
                             onClick={() => onUserClick(user)}
-                            onViewDetails={() => { }}
-                            showDetailsButton={false}
                             isSelected={selectedChat?.id === user.id && selectedChat?.type === 'user'}
                             showOnlineStatus={true}
                         />

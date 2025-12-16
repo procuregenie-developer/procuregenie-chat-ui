@@ -5,11 +5,6 @@ export interface User {
   role: string;
   status: 'online' | 'offline';
   lastSeen?: string;
-  username?: string;
-  online?: boolean;
-  isActive?: boolean;
-  email?: string;
-  lastMessage?: string;
 }
 
 export interface Group {
