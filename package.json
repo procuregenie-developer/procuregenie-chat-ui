@@ -8,6 +8,9 @@
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -21,7 +24,7 @@
   ],
   "scripts": {
     "dev": "vite",
-"build": "tsup src/index.ts --format=cjs,esm --dts --sourcemap --external react --external react-dom --inject-style --target=esnext --clean",
+    "build": "tsup src/index.ts --format=cjs,esm --dts --sourcemap --external react --external react-dom --inject-style --target=esnext --clean",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
