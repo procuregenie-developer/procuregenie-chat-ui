@@ -1,21 +1,32 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES5",
     "module": "ESNext",
     "jsx": "react-jsx",
-    "moduleResolution": "Bundler",
+
+    "lib": ["DOM", "ES2015", "ES2016", "ES2017"],
+
+    "moduleResolution": "Node",
 
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
 
-    "allowSyntheticDefaultImports": true,
+    "outDir": "dist",
+    "declaration": true,
+    "sourceMap": false,
 
-    "lib": ["DOM", "ESNext"],
+    "allowJs": true,
+    "resolveJsonModule": true,
 
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+
+    "noEmitOnError": false
   },
-  "include": ["src"]
+
+  "include": ["src"],
+  "exclude": ["dist", "node_modules"]
 }
