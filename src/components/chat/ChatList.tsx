@@ -231,9 +231,15 @@ export const ChatList = ({
 
       if (response?.status === "success") {
         const groupsList = response?.data || [];
+<<<<<<< HEAD
         const totalGroups = response?.pagination?.totalRecords || 0;
         const totalPages = response?.pagination?.totalPages || 1;
         const currentPage = response?.pagination?.currentPage || page;
+=======
+        const totalGroups = response?.totalRecords || 0;
+        const totalPages = response?.totalPages || 1;
+        const currentPage = response?.currentPage || page;
+>>>>>>> bf58d117cd54bbfa4b1a67f21524526026d4dcbf
 
         loadedGroupsPages.current.add(page);
 
@@ -2524,9 +2530,6 @@ const GroupDetails = ({ group, open, onOpenChange, onJoinChat }: GroupDetailsPro
             </div>
             <div className="group-details-info">
               <h3>{group.name}</h3>
-              {/* <div className="group-members">
-                {group.memberCount || 0} members
-              </div> */}
             </div>
           </div>
 
