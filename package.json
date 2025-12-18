@@ -20,7 +20,7 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap --clean --no-external tailwind-merge --external react --external react-dom",
+    "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap --clean --external react --external react-dom",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
