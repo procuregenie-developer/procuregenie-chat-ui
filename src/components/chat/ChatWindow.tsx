@@ -74,6 +74,7 @@ interface ChatWindowProps {
     };
   }>;
   SOCKET_URL: string;
+  ISDEPLOYE: boolean;//Default value false
 }
 
 const ALLOWED_MIME_TYPES = [
@@ -106,7 +107,8 @@ export const ChatWindow = ({
   currentUserId,
   currentUserName,
   getMessages,
-  SOCKET_URL
+  SOCKET_URL,
+  ISDEPLOYE = false
 }: ChatWindowProps) => {
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -191,7 +193,7 @@ export const ChatWindow = ({
       });
     }
   };
-
+  let DeployeeParams = ISDEPLOYE ? { path: '/socket.io' } : {};
   const loadMessages = useCallback(async (page: number = 1, isLoadMore: boolean = false) => {
     if (!chatId) return;
 
@@ -335,14 +337,14 @@ export const ChatWindow = ({
     if (!currentUserId || !currentUserName || !chatId) return;
 
     setConnectionStatus('connecting');
-
+    console.log(DeployeeParams);
     // Create Socket.IO connection with proper configuration
     const socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
+      transports: ["websocket"], // force websocket
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000
+      ...DeployeeParams
     });
+
 
     socketRef.current = socket;
 
