@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { io, Socket } from "socket.io-client";
+import { Socket } from "socket.io-client";
 
 // Icons
 const XIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
@@ -73,7 +73,7 @@ interface ChatWindowProps {
       totalPages: number;
     };
   }>;
-  SOCKET_URL: string;
+  socket: Socket;
   ISDEPLOYE: boolean;//Default value false
 }
 
@@ -107,7 +107,7 @@ export const ChatWindow = ({
   currentUserId,
   currentUserName,
   getMessages,
-  SOCKET_URL,
+  socket,
   ISDEPLOYE = false
 }: ChatWindowProps) => {
   const [messageText, setMessageText] = useState("");
@@ -338,12 +338,6 @@ export const ChatWindow = ({
 
     setConnectionStatus('connecting');
     console.log(DeployeeParams);
-    // Create Socket.IO connection with proper configuration
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket"], // force websocket
-      reconnection: true,
-      ...DeployeeParams
-    });
 
 
     socketRef.current = socket;
@@ -576,7 +570,7 @@ export const ChatWindow = ({
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, currentUserName, chatId, chatType, SOCKET_URL]);
+  }, [currentUserId, currentUserName, chatId, chatType]);
 
   const handleTypingStart = useCallback(() => {
     const socket = socketRef.current;
@@ -747,7 +741,7 @@ export const ChatWindow = ({
 
     console.log('📤 Sending message via Socket.IO:', payload);
     socketRef.current.emit('handleSendMessage', payload);
-
+    console.log("Ok");
     setMessageText("");
     setFiles([]);
     handleTypingStop();
@@ -1884,8 +1878,8 @@ export const ChatWindow = ({
               <div className="chat-status">
                 {chatType === "user" && (
                   <>
-                    <div className={`status-dot ${isUserOnline ? 'online' : 'offline'}`} />
-                    {isUserOnline ? 'Online' : 'Offline'}
+                    {/* <div className={`status-dot ${isUserOnline ? 'online' : 'offline'}`} /> */}
+                    {/* {isUserOnline ? 'Online' : 'Offline'} */}
                     {otherUserTyping && <span className="typing-indicator"> - typing...</span>}
                   </>
                 )}
@@ -1902,13 +1896,13 @@ export const ChatWindow = ({
             <button className="header-button" onClick={() => setIsSearchOpen(!isSearchOpen)}>
               <SearchIcon />
             </button>
-            <div className={`connection-status ${connectionStatus === 'connected' ? 'status-connected' :
+            {/* <div className={`connection-status ${connectionStatus === 'connected' ? 'status-connected' :
               connectionStatus === 'connecting' ? 'status-connecting' :
                 'status-disconnected'
               }`}>
               {connectionStatus === 'connected' ? '●' :
                 connectionStatus === 'connecting' ? '⟳' : '●'}
-            </div>
+            </div> */}
             <button className="header-button close" onClick={onClose}>
               <XIcon />
             </button>
@@ -2205,7 +2199,7 @@ export const ChatWindow = ({
                 multiple
               />
             </label>
-            <label className={`attachment-label ${isUploading ? 'disabled' : ''}`}>
+            {/* <label className={`attachment-label ${isUploading ? 'disabled' : ''}`}>
               <ImageIcon />
               <span>Image</span>
               <input
@@ -2217,7 +2211,7 @@ export const ChatWindow = ({
                 disabled={isUploading}
                 multiple
               />
-            </label>
+            </label> */}
           </div>
         </div>
 

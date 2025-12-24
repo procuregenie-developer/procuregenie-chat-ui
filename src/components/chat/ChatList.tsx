@@ -3,6 +3,7 @@ import {
   X, Search, Users, MessageCircle, Plus, ChevronDown, Star, Clock,
   Sparkles, Info, User, Check, Mail, Calendar, Loader2
 } from "lucide-react";
+import { Socket } from "socket.io-client";
 
 // Types
 interface UserType {
@@ -55,6 +56,10 @@ interface ChatListProps {
     name: string;
     groupUsers: number[];
   }) => Promise<any>;
+  socket: Socket;
+  ISDEPLOYE?: boolean;
+  currentUserId: number;
+  currentUserName: string;
 }
 
 // Main ChatList Component
@@ -63,7 +68,9 @@ export const ChatList = ({
   getAllGroups,
   onClose,
   onSelectChat,
-  createGroup
+  createGroup,
+  socket,
+  currentUserId
 }: ChatListProps) => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [users, setUsers] = useState<UserType[]>([]);
@@ -98,6 +105,7 @@ export const ChatList = ({
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const isFetching = useRef(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
 
   // Track loaded pages
   const loadedUsersPages = useRef<Set<number>>(new Set([1]));
@@ -275,14 +283,39 @@ export const ChatList = ({
   }, [getAllGroups, isInitialLoad]);
 
   // Initial data fetch
+  // useEffect(() => {
+  //   if (activeTab === "users") {
+  //     fetchUsers(1, searchTerm, true, false);
+  //   } else {
+  //     fetchGroups(1, searchTerm, true, false);
+  //   }
+  // }, [activeTab, userView]);
   useEffect(() => {
-    if (activeTab === "users") {
-      fetchUsers(1, searchTerm, true, false);
-    } else {
-      fetchGroups(1, searchTerm, true, false);
+    if (!currentUserId) {
+      return;
     }
-  }, [activeTab, userView]);
+    setConnectionStatus('connecting');
 
+    const handleRecentChatsMessages = (data: any) => {
+      if (data?.fromUserId == currentUserId) {
+        fetchUsers(1, searchTerm, true, false);
+      };
+    };
+
+    const handleDisconnect = () => {
+      console.log('❌ Socket.IO disconnected');
+      setConnectionStatus('disconnected');
+    };
+
+    socket.on('recent_chats_messages', handleRecentChatsMessages);
+    socket.on('disconnect', handleDisconnect);
+
+    return () => {
+      // Remove event listeners
+      socket.off('recent_chats_messages', handleRecentChatsMessages);
+      socket.off('disconnect', handleDisconnect);
+    };
+  }, [currentUserId]);
   // Handle search with debouncing
   useEffect(() => {
     if (searchTimeoutRef.current) {
@@ -423,6 +456,7 @@ export const ChatList = ({
       bottom: 96px;
       right: 24px;
       width: 420px;
+      min-hight:200px;
       max-height: 85vh;
       background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
       border-radius: 24px;
@@ -496,7 +530,7 @@ export const ChatList = ({
       width: 48px;
       height: 48px;
       border-radius: 16px;
-      background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+      background: linear-gradient(135deg, #1933c9ff 0%, #a855f7 50%, #ec4899 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -564,7 +598,7 @@ export const ChatList = ({
 
     .icon-button:hover {
       background: rgba(99, 102, 241, 0.1);
-      color: #6366f1;
+      color: #1933c9ff;
     }
 
     .icon-button.close:hover {
@@ -610,12 +644,12 @@ export const ChatList = ({
 
     .search-input:focus {
       background: white;
-      border-color: #6366f1;
+      border-color: #1933c9ff;
       box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
     }
 
     .search-input:focus + .search-icon {
-      color: #6366f1;
+      color: #1933c9ff;
     }
 
     .clear-button {
@@ -672,7 +706,7 @@ export const ChatList = ({
     }
 
     .toggle-button.active {
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      background: linear-gradient(135deg, #1933c9ff 0%, #8b5cf6 100%);
       color: white;
       box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
     }
@@ -714,7 +748,7 @@ export const ChatList = ({
     }
 
     .tab-trigger.active {
-      color: #6366f1;
+      color: #1933c9ff;
       background: rgba(99, 102, 241, 0.05);
     }
 
@@ -725,7 +759,7 @@ export const ChatList = ({
       left: 0;
       right: 0;
       height: 3px;
-      background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+      background: linear-gradient(90deg, #1933c9ff 0%, #8b5cf6 100%);
       border-radius: 3px 3px 0 0;
     }
 
@@ -738,7 +772,8 @@ export const ChatList = ({
     .content-area {
       flex: 1;
       overflow-y: auto;
-      max-height: 520px;
+      max-height: 1000px;
+      min-height: 400px;
     }
 
     .content-area::-webkit-scrollbar {
@@ -777,7 +812,7 @@ export const ChatList = ({
       width: 56px;
       height: 56px;
       border: 4px solid rgba(99, 102, 241, 0.15);
-      border-top-color: #6366f1;
+      border-top-color: #1933c9ff;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -789,7 +824,7 @@ export const ChatList = ({
       transform: translate(-50%, -50%);
       width: 24px;
       height: 24px;
-      color: #6366f1;
+      color: #1933c9ff;
     }
 
     .loading-text {
@@ -851,13 +886,6 @@ export const ChatList = ({
       border: 1px solid rgba(0, 0, 0, 0.06);
     }
 
-    .list-item:hover {
-      background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
-      border-color: rgba(99, 102, 241, 0.2);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    }
-
     .avatar-wrapper {
       position: relative;
       flex-shrink: 0;
@@ -867,7 +895,7 @@ export const ChatList = ({
       width: 48px;
       height: 48px;
       border-radius: 14px;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      background: linear-gradient(135deg, #5c86e2ff 0%, #2f48d6ff 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -878,7 +906,7 @@ export const ChatList = ({
     }
 
     .avatar.group {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      background: linear-gradient(135deg, #6b78c0ff 0%, #2f48d6ff 100%);
     }
 
     .status-indicator {
@@ -957,7 +985,7 @@ export const ChatList = ({
     .info-button svg {
       width: 16px;
       height: 16px;
-      color: #6366f1;
+      color: #1933c9ff;
     }
 
     /* Empty State */
@@ -1025,7 +1053,7 @@ export const ChatList = ({
     }
 
     .button-primary {
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      background: linear-gradient(135deg, #6679e7ff 0%, #2141d1ff 100%);
       color: white;
       box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
     }
@@ -1037,12 +1065,12 @@ export const ChatList = ({
 
     .button-outline {
       background: white;
-      color: #6366f1;
+      color: #1933c9ff;
       border: 2px solid rgba(99, 102, 241, 0.2);
     }
 
     .button-outline:hover {
-      border-color: #6366f1;
+      border-color: #1933c9ff;
       background: rgba(99, 102, 241, 0.05);
     }
 
@@ -1087,7 +1115,7 @@ export const ChatList = ({
 
     .mini-spinner.outline {
       border: 2px solid rgba(99, 102, 241, 0.3);
-      border-top-color: #6366f1;
+      border-top-color: #1933c9ff;
     }
 
     .load-more-button {
@@ -1105,8 +1133,8 @@ export const ChatList = ({
     }
 
     .load-more-button:hover:not(:disabled) {
-      border-color: #6366f1;
-      color: #6366f1;
+      border-color: #1933c9ff;
+      color: #1933c9ff;
       background: rgba(99, 102, 241, 0.05);
     }
 
@@ -1277,7 +1305,7 @@ export const ChatList = ({
     }
 
     .form-input:focus {
-      border-color: #6366f1;
+      border-color: #1933c9ff;
       box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
     }
 
@@ -1312,7 +1340,7 @@ export const ChatList = ({
     }
 
     .modal-search-input:focus {
-      border-color: #6366f1;
+      border-color: #1933c9ff;
       box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
     }
 
@@ -1337,7 +1365,7 @@ export const ChatList = ({
 
     .selected-user-tag {
       background: rgba(99, 102, 241, 0.1);
-      color: #6366f1;
+      color: #1933c9ff;
       padding: 6px 12px;
       border-radius: 20px;
       font-size: 13px;
@@ -1356,7 +1384,7 @@ export const ChatList = ({
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #6366f1;
+      color: #1933c9ff;
       transition: all 0.2s ease;
     }
 
@@ -1404,8 +1432,8 @@ export const ChatList = ({
     }
 
     .user-checkbox.checked {
-      background: #6366f1;
-      border-color: #6366f1;
+      background: #1933c9ff;
+      border-color: #1933c9ff;
     }
 
     .user-checkbox svg {
@@ -1418,7 +1446,7 @@ export const ChatList = ({
       width: 40px;
       height: 40px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      background: linear-gradient(135deg, #5563b1ff 0%, #2e2bc7ff 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1470,7 +1498,7 @@ export const ChatList = ({
       width: 80px;
       height: 80px;
       border-radius: 20px;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      background: linear-gradient(135deg, #1933c9ff 0%, #0d37c0ff 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1571,7 +1599,7 @@ export const ChatList = ({
       width: 80px;
       height: 80px;
       border-radius: 20px;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      background: linear-gradient(135deg, #5369ccff 0%, #2234d4ff 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1635,14 +1663,14 @@ export const ChatList = ({
         <div className="chat-header">
           <div className="header-top">
             <div className="header-left">
-              <div className="header-icon-wrapper">
+              {/* <div className="header-icon-wrapper">
                 <MessageCircle />
                 <div className="online-indicator" />
-              </div>
+              </div> */}
               <div className="header-text">
                 <h3>Messages</h3>
                 <div className="header-subtitle">
-                  <Sparkles />
+                  <Users />
                   <span>
                     {activeTab === 'users'
                       ? `${usersPagination.totalRecords} contacts`
@@ -1882,7 +1910,7 @@ const UserListContent = ({
       )}
 
       {/* Manual Load Previous Button (for testing) */}
-      {hasPreviousUsers && !loadingPrevious && (
+      {/* {hasPreviousUsers && !loadingPrevious && (
         <div className="load-more-container">
           <button
             className="load-more-button"
@@ -1892,7 +1920,7 @@ const UserListContent = ({
             Load Previous Users
           </button>
         </div>
-      )}
+      )} */}
 
       {/* Frequent Contacts */}
       {frequentContacts.length > 0 && userView === 'chatted' && !searchTerm && (
@@ -1907,7 +1935,7 @@ const UserListContent = ({
                 <div className="avatar">
                   {user.username?.charAt(0).toUpperCase()}
                 </div>
-                <div className={`status-indicator ${user.online ? 'online' : 'offline'}`} />
+                {/* <div className={`status-indicator ${user.online ? 'online' : 'offline'}`} /> */}
               </div>
               <div className="list-item-content">
                 <div className="list-item-header">
