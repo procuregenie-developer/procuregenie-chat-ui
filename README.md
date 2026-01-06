@@ -1,111 +1,123 @@
-Here is a clean, developer-friendly **README.md** section you can include in your project that explains **exactly how to use `ChatList` and `ChatWindow`** from your `chatbortui` package.
+📘 ChatbortUI – React Chat Components
 
----
+ChatbortUI is a lightweight React UI package that provides ready-to-use chat components for private and group messaging using Socket.io.
 
-# 📘 ChatbortUI – Usage Guide
+It is designed to plug into any React application with minimal setup.
 
-This guide explains how to integrate **ChatList** and **ChatWindow** in your React application.
+✨ Features
 
-## ✅ Installation
+👥 User & Group chat support
 
-```bash
+💬 Real-time messaging (Socket.io)
+
+✏️ Edit messages
+
+🗑 Delete messages
+
+➖ Minimize / Close chat window
+
+🧩 Easy API-based integration
+
+
+📦 Installation
+Install from npm
 npm install chatbortui
-```
 
-Or:
 
-```bash
+or
+
 yarn add chatbortui
-```
 
----
+🛠 Local Package Development (Using npm link)
+Build & link the package
+npm run build
+npm link
 
-# 🚀 Components Overview
+Use linked package in another project
+npm link chatbortui
 
-ChatbortUI provides **two main components**:
+🚀 Components Overview
 
-### **1️⃣ ChatList**
+ChatbortUI provides two main components:
 
-Displays:
-
-* All users
-* All groups
-  Allows:
-* Selecting a user/group to chat
-* Creating a new group
-* Closing the list
-
-### **2️⃣ ChatWindow**
+1️⃣ ChatList
 
 Displays:
 
-* Chat messages
-  Allows:
-* Sending messages
-* Editing messages
-* Deleting messages
-* Group or private messages
-* Minimize / Close
+All users
 
----
+All groups
 
-# 🧩 Integration Steps
+Allows:
 
-## **Step 1: Import Components**
+Selecting a user or group
 
-```tsx
+Creating a new group
+
+Closing the chat list
+
+2️⃣ ChatWindow
+
+Displays:
+
+Chat messages
+
+Allows:
+
+Sending messages
+
+Editing messages
+
+Deleting messages
+
+Private & group chats
+
+Minimize / Close window
+
+🧩 Integration Guide
+Step 1: Import Components
 import { ChatList, ChatWindow } from "chatbortui";
-```
 
----
+Step 2: ChatList Props
+📌 Required Props
+Prop	Type	Description
+getAllUsers	() => Promise<any[]>	Fetch all users
+getAllGroups	() => Promise<any[]>	Fetch all groups
+onSelectChat	(id, type, name) => void	Fired when a chat is selected
+onClose	() => void	Close chat list
+createGroup	(groupData) => Promise<any>	Create new group
+currentUserId	string	Logged-in user ID
+currentUserName	string	Logged-in username
 
-## **Step 2: Required Props for ChatList**
-
-### 📌 `ChatList` Props
-
-| Prop           | Type                          | Description                       |
-| -------------- | ----------------------------- | --------------------------------- |
-| `getAllUsers`  | `() => Promise<any[]>`        | API function returning all users  |
-| `getAllGroups` | `() => Promise<any[]>`        | API function returning all groups |
-| `onSelectChat` | `(id, type, name) => void`    | Fires when user selects a chat    |
-| `onClose`      | `() => void`                  | Close button handler              |
-| `createGroup`  | `(groupData) => Promise<any>` | API to create new group           |
-
-### ✔ ChatList Usage
-
-```tsx
+✔ Example Usage
 <ChatList
   getAllUsers={getUsersApi}
   getAllGroups={getGroupsApi}
   onSelectChat={handleSelectChat}
   onClose={handleToggleChatList}
   createGroup={createGroup}
+  currentUserId={currentUserId}
+  currentUserName={currentUserName}
+  getGroupManageUsers={getGroupUsersData}
+  socket={socket}
+  assignedUsers={assignedUsers}
 />
-```
 
----
-
-## **Step 3: Required Props for ChatWindow**
-
-### 📌 `ChatWindow` Props
-
-| Prop              | Type                                   | Description             |
-| ----------------- | -------------------------------------- | ----------------------- |
-| `chatId`          | `string`                               | Selected user/group ID  |
-| `chatType`        | `"user" \| "group"`                    | Type of chat            |
-| `approachName`    | `string`                               | Name shown at top       |
-| `getMessages`     | `(chatId, chatType) => Promise<any[]>` | Load chat messages      |
-| `onClose`         | `() => void`                           | Close chat window       |
-| `onMinimize`      | `() => void`                           | Minimize chat window    |
-| `onEditMessage`   | `(id, text) => void`                   | Edit message handler    |
-| `onDeleteMessage` | `(id) => void`                         | Delete message handler  |
-| `currentUserId`   | `string`                               | Logged-in user ID       |
-| `currentUserName` | `string`                               | Logged-in username      |
-| `SOCKET_URL`      | `string`                               | URL of socket.io server |
-
-### ✔ ChatWindow Usage
-
-```tsx
+Step 3: ChatWindow Props
+📌 Required Props
+Prop	Type	Description
+chatId	string	Selected chat ID
+chatType	"user" | "group"	Chat type
+approachName	string	Header display name
+getMessages	(id, type) => Promise<any[]>	Fetch messages
+onClose	() => void	Close window
+onMinimize	() => void	Minimize window
+onEditMessage	(id, text) => void	Edit message
+onDeleteMessage	(id) => void	Delete message
+currentUserId	string	Logged-in user ID
+currentUserName	string	Logged-in username
+SOCKET_URL	string	Socket.io server URL
+✔ Example Usage
 <ChatWindow
   chatId={currentChat.id}
   chatType={currentChat.type}
@@ -119,13 +131,8 @@ import { ChatList, ChatWindow } from "chatbortui";
   currentUserName={currentUserName}
   SOCKET_URL="http://localhost:3000"
 />
-```
 
----
-
-## **Step 4: ChatList + ChatWindow Complete Example**
-
-```tsx
+Step 4: Full Integration Example
 {showChatList && (
   <ChatList
     getAllUsers={getUsersApi}
@@ -140,47 +147,31 @@ import { ChatList, ChatWindow } from "chatbortui";
   <ChatWindow
     chatId={currentChat.id}
     chatType={currentChat.type}
+    approachName={currentChat.name}
     getMessages={getMessages}
-    approachName={currentChat?.name}
     onClose={handleCloseChat}
     onMinimize={handleMinimizeChat}
     onEditMessage={handleEditMessage}
     onDeleteMessage={handleDeleteMessage}
     currentUserId={currentUserId}
     currentUserName={currentUserName}
-    SOCKET_URL={"http://localhost:3000"}
+    SOCKET_URL="http://localhost:3000"
   />
 )}
-```
 
----
-
-# 🧪 API ENDPOINT FORMAT (Expected Shape)
-
-## getUsersApi ⇒ Must return:
-
-```json
+🧪 Expected API Response Formats
+getAllUsers
 [
   { "id": "1", "username": "Alice" },
   { "id": "2", "username": "Bob" }
 ]
-```
 
----
-
-## getGroupsApi ⇒ Must return:
-
-```json
+getAllGroups
 [
   { "id": "101", "groupName": "Developers" }
 ]
-```
 
----
-
-## getMessages ⇒ Must return:
-
-```json
+getMessages
 [
   {
     "id": "msg1",
@@ -189,51 +180,16 @@ import { ChatList, ChatWindow } from "chatbortui";
     "createdAt": "2024-01-01T12:30:00"
   }
 ]
-```
 
----
+🔌 Socket.io Events (Backend Requirement)
 
-# 🧩 Socket.io Requirements
+Your backend must support the following events:
 
-Your backend must support:
-
-### Message edit
-
-```ts
-socket.on("handleEditMessage")
-```
-
-### Message delete
-
-```ts
-socket.on("handleDeleteMessage")
-```
-
-### Message receive
-
-```ts
+Receive Message
 socket.on("receiveMessage")
-```
 
----
+Edit Message
+socket.on("handleEditMessage")
 
-# 💡 Notes
-
-* `ChatWindow` automatically connects to your socket server.
-* Uses `currentUserId` to style messages.
-* Group and Private chats supported.
-* Works in any React + Tailwind project.
-
----
-
-If you want, I can generate a **full professional README.md file** for publishing on npm/github.
-
-
-Package use steps :-
-
-1) npm run build
-2) npm link
-
-Package import use steps :-
-
-3) npm install <packagename>
+Delete Message
+socket.on("handleDeleteMessage")

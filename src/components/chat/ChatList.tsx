@@ -35,6 +35,10 @@ interface GroupType {
   description?: string;
   memberCount?: number;
   modelCount?: number;
+  createdByUser: {
+    id: string;
+    name: string;
+  };
   isMember?: boolean;
   createdBy?: number;
   createdAt?: string;
@@ -103,9 +107,8 @@ export const ChatList = ({
   const [groups, setGroups] = useState<GroupType[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"users" | "groups">("users");
-  const [userView, setUserView] = useState<'chatted' | 'all'>('chatted');
+  const [userView, setUserView] = useState<'chatted' | 'all' | ''>('chatted');
   const [frequentContacts, setFrequentContacts] = useState<UserType[]>([]);
-
   // Pagination states
   const [usersPagination, setUsersPagination] = useState<PaginationType>({
     currentPage: 1,
@@ -323,7 +326,7 @@ export const ChatList = ({
     setConnectionStatus('connecting');
 
     const handleRecentChatsMessages = (data: any) => {
-      if (data?.fromUserId == currentUserId) {
+      if (data?.fromUserId == currentUserId || data?.toUserId == currentUserId) {
         fetchUsers(1, searchTerm, true, false);
       };
     };
@@ -1749,14 +1752,20 @@ export const ChatList = ({
         <div className="view-toggle">
           <button
             className={`toggle-button ${userView === 'chatted' ? 'active' : ''}`}
-            onClick={() => setUserView('chatted')}
+            onClick={() => {
+              setActiveTab('users');
+              setUserView('chatted')
+            }}
           >
             <Clock />
             Recent Chats
           </button>
           <button
             className={`toggle-button ${userView === 'all' ? 'active' : ''}`}
-            onClick={() => setUserView('all')}
+            onClick={() => {
+              setActiveTab('users');
+              setUserView('all')
+            }}
           >
             <Users />
             All Users
@@ -1768,14 +1777,20 @@ export const ChatList = ({
           <div className="tabs-list">
             <button
               className={`tab-trigger ${activeTab === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveTab('users')}
+              onClick={() => {
+                setActiveTab('users')
+                setUserView('all')
+              }}
             >
               <Users />
               <span>Users</span>
             </button>
             <button
               className={`tab-trigger ${activeTab === 'groups' ? 'active' : ''}`}
-              onClick={() => setActiveTab('groups')}
+              onClick={() => {
+                setUserView('');
+                setActiveTab('groups')
+              }}
             >
               <MessageCircle />
               <span>Groups</span>
@@ -1875,7 +1890,7 @@ export const ChatList = ({
 interface UserListContentProps {
   users: UserType[];
   frequentContacts: UserType[];
-  userView: 'chatted' | 'all';
+  userView: 'chatted' | 'all' | '';
   searchTerm: string;
   onSelectUser: (user: UserType) => void;
   onViewUserDetails: (user: UserType) => void;
@@ -2130,7 +2145,6 @@ const GroupListContent = ({
   // New state for group name editing
   const [isEditingGroupName, setIsEditingGroupName] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState('');
-  const [originalGroupName, setOriginalGroupName] = useState('');
 
   const handleInfoClick = (e: React.MouseEvent, group: GroupType) => {
     e.stopPropagation();
@@ -2145,7 +2159,6 @@ const GroupListContent = ({
     setUsersToRemove([]);
     setIsEditingGroupName(false);
     setGroupNameInput('');
-    setOriginalGroupName('');
     // Load initial data when modal opens
     await loadAssignedUsers(group.id);
     await loadUnassignedUsers(group.id);
@@ -2284,7 +2297,6 @@ const GroupListContent = ({
     setActiveTab('assigned');
     setIsEditingGroupName(false);
     setGroupNameInput('');
-    setOriginalGroupName('');
   };
 
   // Handle assigning a user
@@ -2394,7 +2406,6 @@ const GroupListContent = ({
   const handleEditGroupName = () => {
     if (selectedGroupForModel) {
       setIsEditingGroupName(true);
-      setOriginalGroupName(selectedGroupForModel.name);
       setGroupNameInput(selectedGroupForModel.name);
     }
   };
@@ -2622,7 +2633,7 @@ const GroupListContent = ({
                     <>
                       <Users size={20} />
                       <h3 className="group-management-modal-title">
-                        {selectedGroupForModel.name}
+                        {groupNameInput.length > 0 ? groupNameInput : selectedGroupForModel?.name}
                         {selectedGroupForModel?.createdBy === currentUserId && (
                           <button
                             className="group-management-edit-icon"
@@ -2934,7 +2945,7 @@ const GroupListContent = ({
                               </div>
                             ) : (
                               <div className="group-management-settings-display">
-                                <span className="group-management-settings-value">{selectedGroupForModel.name}</span>
+                                <span className="group-management-settings-value">{groupNameInput?.length > 0 ? groupNameInput : selectedGroupForModel.name}</span>
                                 <button
                                   className="group-management-settings-edit-button"
                                   onClick={handleEditGroupName}
@@ -3911,46 +3922,107 @@ const CreateGroupModal = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const usersListRef = useRef<HTMLDivElement>(null);
+  const isFetchingRef = useRef(false);
+  const pageSize = 10; // Fixed page size
 
-  // Fetch users for selection
-  const fetchUsers = async (search = '') => {
+  // Fetch users with pagination
+  const fetchUsers = async (page = 1, search = '', isLoadMore = false) => {
+    if (isFetchingRef.current) return;
+
+    isFetchingRef.current = true;
     setLoading(true);
+
     try {
       const response = await getUsersApi({
-        currentPage: 1,
-        totalRecords: 50,
-        moduleValue: 0,
-        search
+        currentPage: page,
+        totalRecords: pageSize,
+        search,
+        moduleValue: 0
       });
-      setUsers(response.data || []);
+
+      const newUsers = response.data || [];
+
+      // Check if we received fewer users than requested
+      const receivedFullPage = newUsers.length === pageSize;
+      setHasMore(receivedFullPage);
+
+      if (isLoadMore) {
+        // Filter out duplicates when loading more
+        const existingIds = new Set(users.map(user => user.id));
+        const uniqueNewUsers = newUsers.filter(user => !existingIds.has(user.id));
+        setUsers(prev => [...prev, ...uniqueNewUsers]);
+      } else {
+        setUsers(newUsers);
+      }
+
+      setCurrentPage(page);
     } catch (error) {
       console.error('Error fetching users:', error);
+      setHasMore(false); // Stop trying on error
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
+  // Reset when step changes or modal opens
   useEffect(() => {
     if (open && step === 'users') {
-      fetchUsers();
+      setCurrentPage(1);
+      setHasMore(true);
+      fetchUsers(1, searchQuery);
     }
   }, [open, step]);
 
+  // Handle search with debounce
   const handleSearch = (query: string) => {
     setSearchQuery(query);
 
-    // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Set new timeout for debounced search
     searchTimeoutRef.current = setTimeout(() => {
-      fetchUsers(query);
+      setCurrentPage(1);
+      setHasMore(true);
+      fetchUsers(1, query);
     }, 300);
   };
 
+  // Infinite scroll handler
+  const handleScroll = () => {
+    if (!usersListRef.current || loading || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = usersListRef.current;
+
+    // Load more when scrolled near bottom (adds 5px buffer)
+    if (scrollHeight - scrollTop <= clientHeight + 5) {
+      loadMoreUsers();
+    }
+  };
+
+  // Load more users function
+  const loadMoreUsers = () => {
+    if (!loading && hasMore && !isFetchingRef.current) {
+      const nextPage = currentPage + 1;
+      fetchUsers(nextPage, searchQuery, true);
+    }
+  };
+
+  // Add scroll event listener
+  useEffect(() => {
+    const listElement = usersListRef.current;
+    if (listElement && step === 'users' && !loading) {
+      listElement.addEventListener('scroll', handleScroll);
+      return () => listElement.removeEventListener('scroll', handleScroll);
+    }
+  }, [step, loading, hasMore]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
@@ -3958,6 +4030,17 @@ const CreateGroupModal = ({
       }
     };
   }, []);
+
+  // Manually trigger load more if initial results don't fill the container
+  useEffect(() => {
+    if (usersListRef.current && step === 'users' && !loading && hasMore) {
+      const { scrollHeight, clientHeight } = usersListRef.current;
+      // If content doesn't fill the container, load more
+      if (scrollHeight <= clientHeight && users.length > 0) {
+        loadMoreUsers();
+      }
+    }
+  }, [users, step, loading, hasMore]);
 
   const toggleUserSelection = (userId: number) => {
     setSelectedUsers(prev =>
@@ -3991,6 +4074,9 @@ const CreateGroupModal = ({
     setGroupName('');
     setSelectedUsers([]);
     setSearchQuery('');
+    setUsers([]);
+    setCurrentPage(1);
+    setHasMore(true);
     onOpenChange(false);
   };
 
@@ -4038,7 +4124,7 @@ const CreateGroupModal = ({
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
               {/* Search */}
               <div className="modal-search-wrapper">
                 <Search className="modal-search-icon" />
@@ -4076,40 +4162,75 @@ const CreateGroupModal = ({
                 </div>
               )}
 
-              {/* Users List */}
-              <div className="users-list">
-                {loading ? (
-                  <div className="modal-loading">
-                    Loading users...
-                  </div>
-                ) : users.length === 0 ? (
+              {/* Users List with Infinite Scroll */}
+              <div
+                ref={usersListRef}
+                className="users-list"
+                style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  minHeight: '300px',
+                  maxHeight: '400px',
+                  position: 'relative'
+                }}
+              >
+                {users.length === 0 && !loading ? (
                   <div className="modal-empty">
                     No users found
                   </div>
                 ) : (
-                  users.map(user => (
-                    <div
-                      key={user.id}
-                      className="user-item"
-                      onClick={() => toggleUserSelection(user.id)}
-                    >
-                      <div className={`user-checkbox ${selectedUsers.includes(user.id) ? 'checked' : ''}`}>
-                        {selectedUsers.includes(user.id) && <Check />}
+                  <>
+                    {users.map(user => (
+                      <div
+                        key={user.id}
+                        className="user-item"
+                        onClick={() => toggleUserSelection(user.id)}
+                      >
+                        <div className={`user-checkbox ${selectedUsers.includes(user.id) ? 'checked' : ''}`}>
+                          {selectedUsers.includes(user.id) && <Check />}
+                        </div>
+                        <div className="user-avatar">
+                          {user.username?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="user-info">
+                          <div className="user-name">{user.username}</div>
+                          <div className="user-email">{user.email}</div>
+                        </div>
                       </div>
-                      <div className="user-avatar">
-                        {user.username?.charAt(0).toUpperCase()}
+                    ))}
+
+                    {/* Loading indicator for infinite scroll */}
+                    {loading && (
+                      <div className="loading-more" style={{ textAlign: 'center', padding: '10px' }}>
+                        <div className="loading-spinner" style={{
+                          width: '20px',
+                          height: '20px',
+                          border: '2px solid #f3f3f3',
+                          borderTop: '2px solid #3498db',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite',
+                          margin: '0 auto'
+                        }} />
                       </div>
-                      <div className="user-info">
-                        <div className="user-name">{user.username}</div>
-                        <div className="user-email">{user.email}</div>
+                    )}
+
+                    {/* No more users indicator */}
+                    {!hasMore && users.length > 0 && (
+                      <div className="no-more-users" style={{
+                        textAlign: 'center',
+                        padding: '10px',
+                        color: '#666',
+                        fontSize: '14px'
+                      }}>
+                        No more users to load
                       </div>
-                    </div>
-                  ))
+                    )}
+                  </>
                 )}
               </div>
 
               {/* Actions */}
-              <div className="modal-footer" style={{ padding: '0', border: 'none' }}>
+              <div className="modal-footer" style={{ padding: '0', border: 'none', marginTop: 'auto' }}>
                 <button className="button button-outline" onClick={() => setStep('name')}>
                   Back
                 </button>
@@ -4133,6 +4254,19 @@ const CreateGroupModal = ({
     </div>
   );
 };
+
+// Add CSS for spinner animation
+const styles = `
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`;
+
+// Add this to your global CSS or component
+const styleSheet = document.createElement("style");
+styleSheet.innerText = styles;
+document.head.appendChild(styleSheet);
 
 // User Details Modal Component (unchanged)
 interface UserDetailsProps {
@@ -4268,8 +4402,14 @@ const GroupDetails = ({ group, open, onOpenChange, onJoinChat }: GroupDetailsPro
               </span>
             </div>
           )}
-
-          <div className="modal-footer" style={{ padding: '0', border: 'none' }}>
+          <div className="detail-item">
+            <User />
+            <span className="detail-label">Admin :</span>
+            <span className="detail-value">
+              {group?.createdByUser?.name}
+            </span>
+          </div>
+          <div className="modal-footer" style={{ padding: '0', border: 'none', marginTop: 10 }}>
             <button
               className="button button-primary"
               onClick={() => {

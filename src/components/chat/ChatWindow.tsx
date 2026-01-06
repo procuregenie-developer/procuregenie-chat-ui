@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Socket } from "socket.io-client";
 
-// Icons
+// Icons (keep the same as before)
 const XIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
 const PaperclipIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>;
 const ImageIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>;
@@ -17,6 +17,7 @@ const DownloadIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill=
 const MoreVerticalIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>;
 const EditIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>;
 const DeleteIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>;
+const UsersIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
 
 // Interfaces
 interface Message {
@@ -75,7 +76,7 @@ interface ChatWindowProps {
     };
   }>;
   socket: Socket;
-  ISDEPLOYE: boolean;//Default value false
+  ISDEPLOYE: boolean;
 }
 
 const ALLOWED_MIME_TYPES = [
@@ -128,6 +129,7 @@ export const ChatWindow = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [quickReplies] = useState(["Hello", "Hi there", "How are you?", "Thanks"]);
+  const [groupUsersTyping, setGroupUsersTyping] = useState<Map<string, string>>(new Map()); // userId -> username
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -139,6 +141,7 @@ export const ChatWindow = ({
   const isFetchingRef = useRef(false);
   const selectedChatRef = useRef({ chatId, chatType });
   const menuRef = useRef<HTMLDivElement>(null);
+  const lastGroupRoomRef = useRef<string | null>(null);
 
   useEffect(() => {
     selectedChatRef.current = { chatId, chatType };
@@ -194,7 +197,7 @@ export const ChatWindow = ({
       });
     }
   };
-  let DeployeeParams = ISDEPLOYE ? { path: '/socket.io' } : {};
+
   const loadMessages = useCallback(async (page: number = 1, isLoadMore: boolean = false) => {
     if (!chatId) return;
 
@@ -334,13 +337,36 @@ export const ChatWindow = ({
     }
   }, [handleScroll]);
 
+  // Group room management
+  const joinGroupRoom = useCallback(() => {
+    if (chatType === 'group' && chatId && socketRef.current) {
+      const roomName = `group_${chatId}`;
+      socketRef.current.emit('join_group', {
+        userId: currentUserId,
+        groupId: chatId.toString()
+      });
+      lastGroupRoomRef.current = roomName;
+      console.log(`👥 Joined group room: ${roomName}`);
+    }
+  }, [chatId, chatType, currentUserId]);
+
+  const leaveGroupRoom = useCallback(() => {
+    if (lastGroupRoomRef.current && socketRef.current) {
+      const groupId = lastGroupRoomRef.current.replace('group_', '');
+      socketRef.current.emit('leave_group', {
+        userId: currentUserId,
+        groupId: groupId
+      });
+      console.log(`👋 Left group room: ${lastGroupRoomRef.current}`);
+      lastGroupRoomRef.current = null;
+    }
+  }, [currentUserId]);
+
   // Initialize Socket.IO connection
   useEffect(() => {
     if (!currentUserId || !currentUserName || !chatId) return;
 
     setConnectionStatus('connecting');
-
-
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -352,6 +378,11 @@ export const ChatWindow = ({
         userId: currentUserId,
         userInfo: { id: currentUserId, name: currentUserName }
       });
+
+      // Join group room if it's a group chat
+      if (chatType === 'group') {
+        joinGroupRoom();
+      }
     });
 
     socket.on('disconnect', () => {
@@ -373,6 +404,11 @@ export const ChatWindow = ({
       setOnlineUsers(users);
     });
 
+    socket.on('online_users_list', (users: OnlineUser[]) => {
+      setOnlineUsers(users);
+    });
+
+    // Typing indicators for private chats
     socket.on('user_typing', (data: { userId: string; isTyping: boolean }) => {
       const currentChat = selectedChatRef.current;
       if (currentChat.chatType === 'user' && String(data.userId) === String(currentChat.chatId)) {
@@ -380,6 +416,30 @@ export const ChatWindow = ({
         if (data.isTyping) {
           setTimeout(() => setOtherUserTyping(false), 3000);
         }
+      }
+    });
+
+    // Group typing indicators
+    socket.on('group_user_typing', (data: { groupId: string; userId: string; isTyping: boolean; userName?: string }) => {
+      const currentChat = selectedChatRef.current;
+      if (currentChat.chatType === 'group' && String(data.groupId) === String(currentChat.chatId)) {
+        setGroupUsersTyping(prev => {
+          const newMap = new Map(prev);
+          if (data.isTyping) {
+            newMap.set(data.userId, data.userName || `User ${data.userId}`);
+            // Auto-clear typing after 3 seconds
+            setTimeout(() => {
+              setGroupUsersTyping(prev => {
+                const updated = new Map(prev);
+                updated.delete(data.userId);
+                return updated;
+              });
+            }, 3000);
+          } else {
+            newMap.delete(data.userId);
+          }
+          return newMap;
+        });
       }
     });
 
@@ -412,9 +472,9 @@ export const ChatWindow = ({
       }
     });
 
-    socket.on('new_message', (payload: { message: any }) => {
+    socket.on('new_message', (payload: { message: any; fromUser?: any; groupId?: string }) => {
       console.log('📨 New message received:', payload);
-      const { message } = payload;
+      const { message, fromUser } = payload;
       const currentChat = selectedChatRef.current;
 
       const isForCurrentChat =
@@ -436,7 +496,7 @@ export const ChatWindow = ({
           updatedAt: message.updatedAt,
           isEdited: message.updatedAt !== message.createdAt,
           isRead: true,
-          senderName: message.senderName,
+          senderName: message.senderName || fromUser?.name || `User ${message.fromUserId}`,
           isSending: false
         };
 
@@ -464,8 +524,7 @@ export const ChatWindow = ({
         (currentChat.chatType === 'group' && String(message.groupId) === String(currentChat.chatId)) ||
         (currentChat.chatType === 'user' &&
           ((String(message.fromUserId) === String(currentUserId) && String(message.toUserId) === String(currentChat.chatId)) ||
-            (String(message.fromUserId) === String(currentChat.chatId) && String(message.toUserId) === String(currentUserId)) ||
-            (String(message.fromUserId) === String(currentUserId) && String(message.toUserId) === String(currentChat.chatId))));
+            (String(message.fromUserId) === String(currentChat.chatId) && String(message.toUserId) === String(currentUserId))));
 
       if (isForCurrentChat) {
         const frontendEditedMessage: Message = {
@@ -489,17 +548,27 @@ export const ChatWindow = ({
       }
     });
 
-    socket.on('message_deleted', (data: { messageId: string }) => {
+    socket.on('message_deleted', (data: { messageId: string; groupId?: string; toUserId?: string; fromUserId: string }) => {
       console.log('🗑️ Message deleted received:', data);
 
-      setMessages(prev => prev.filter((msg) => {
-        if (msg.id == data.messageId) {
-          msg.files = [];
-          msg.messageText = "Your message deleted."
-          msg.isDeleted=true;
-        };
-        return msg;
-      }));
+      const currentChat = selectedChatRef.current;
+      const isForCurrentChat =
+        (currentChat.chatType === 'group' && String(data.groupId) === String(currentChat.chatId)) ||
+        (currentChat.chatType === 'user' &&
+          ((String(data.fromUserId) === String(currentUserId) && String(data.toUserId) === String(currentChat.chatId)) ||
+            (String(data.fromUserId) === String(currentChat.chatId) && String(data.toUserId) === String(currentUserId))));
+
+      if (isForCurrentChat) {
+        setMessages(prev => prev.filter((msg) => {
+          console.log(msg);
+          if (msg.id == data.messageId) {
+            msg.files = [];
+            msg.messageText = "Your message deleted.";
+            msg.isDeleted = true;
+          };
+          return msg;
+        }));
+      }
     });
 
     socket.on('message_error', (data: { error: string; tempId?: string }) => {
@@ -511,99 +580,110 @@ export const ChatWindow = ({
       alert(data.error || 'Failed to send message');
     });
 
-    // Group message events for group chats
-    if (chatType === 'group') {
-      socket.on(`group_message_${chatId}`, (payload: { message: any }) => {
-        console.log('👥 Group message received:', payload);
-        const { message } = payload;
+    // Group specific events
+    socket.on('group_member_joined', (data: { userId: string; groupId: string; timestamp: string }) => {
+      if (String(data.groupId) === String(chatId)) {
+        console.log(`👤 User ${data.userId} joined group ${data.groupId}`);
+        // You can update group member status here if needed
+      }
+    });
 
-        const frontendMessage: Message = {
-          id: String(message.id),
-          fromUserId: String(message.fromUserId),
-          groupId: message.groupId || undefined,
-          messageType: message.messageType,
-          messageText: message.messageText || undefined,
-          files: message.files || [],
-          createdAt: message.createdAt,
-          updatedAt: message.updatedAt,
-          isEdited: message.updatedAt !== message.createdAt,
-          isRead: true,
-          senderName: message.senderName,
-          isSending: false
-        };
+    socket.on('group_member_left', (data: { userId: string; groupId: string; timestamp: string }) => {
+      if (String(data.groupId) === String(chatId)) {
+        console.log(`👋 User ${data.userId} left group ${data.groupId}`);
+        // You can update group member status here if needed
+      }
+    });
 
-        setMessages(prev => {
-          const exists = prev.some(m => m.id === frontendMessage.id);
-          if (exists) {
-            return prev.map(m =>
-              m.id === frontendMessage.id ? frontendMessage : m
-            );
-          }
-          return [...prev, frontendMessage];
-        });
+    // Recent chats update
+    socket.on('recent_chats_messages', (data: {
+      fromUserId: string;
+      timestamp: string;
+      toUserId?: number;
+      groupId?: number;
+    }) => {
+      // This event can be used to update the recent chats list in parent component
+      console.log('🔄 Recent chats update:', data);
+    });
 
-        if (isNearBottom.current) {
-          setTimeout(() => scrollToBottom(true), 100);
-        }
-      });
-
-      socket.on(`group_message_deleted_${chatId}`, (data: { messageId: string }) => {
-        console.log('🗑️ Group message deleted:', data);
-        setMessages(prev => prev.filter(msg => msg.id !== data.messageId));
-      });
-
-      socket.on(`group_message_edited_${chatId}`, (message: any) => {
-        console.log('✏️ Group message edited:', message);
-
-        const frontendEditedMessage: Message = {
-          id: String(message.id),
-          fromUserId: String(message.fromUserId),
-          groupId: message.groupId || undefined,
-          messageType: message.messageType,
-          messageText: message.messageText || undefined,
-          files: message.files || [],
-          createdAt: message.createdAt,
-          updatedAt: message.updatedAt,
-          isEdited: true,
-          isRead: true,
-          senderName: message.senderName
-        };
-
-        setMessages(prev => prev.map(msg =>
-          msg.id === frontendEditedMessage.id ? frontendEditedMessage : msg
-        ));
-      });
-    }
+    // Chat list updates
+    socket.on('chat_list_update', (data: { type: 'user' | 'group'; id: string; timestamp: string }) => {
+      console.log('📋 Chat list update requested:', data);
+      // You can trigger a refresh of chat lists here
+    });
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      // Leave group room when component unmounts
+      if (chatType === 'group') {
+        leaveGroupRoom();
+      }
+      // Remove listeners
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('connect_error');
+      socket.off('online_users');
+      socket.off('online_users_list');
+      socket.off('user_typing');
+      socket.off('group_user_typing');
+      socket.off('message_sent');
+      socket.off('new_message');
+      socket.off('message_edited');
+      socket.off('message_deleted');
+      socket.off('message_error');
+      socket.off('group_member_joined');
+      socket.off('group_member_left');
+      socket.off('recent_chats_messages');
+      socket.off('chat_list_update');
     };
-  }, [currentUserId, currentUserName, chatId, chatType]);
+  }, [currentUserId, currentUserName, chatId, chatType, joinGroupRoom, leaveGroupRoom]);
+
+  // Handle group room changes when chatType changes
+  useEffect(() => {
+    if (chatType === 'group') {
+      joinGroupRoom();
+    } else {
+      leaveGroupRoom();
+    }
+  }, [chatId, chatType, joinGroupRoom, leaveGroupRoom]);
 
   const handleTypingStart = useCallback(() => {
     const socket = socketRef.current;
-    if (!socket || chatType !== 'user') return;
+    if (!socket) return;
 
-    socket.emit('typing_start', {
-      fromUserId: currentUserId,
-      toUserId: chatId.toString()
-    });
+    if (chatType === 'user') {
+      socket.emit('typing_start', {
+        fromUserId: currentUserId,
+        toUserId: chatId.toString()
+      });
+    } else if (chatType === 'group') {
+      socket.emit('group_typing_start', {
+        fromUserId: currentUserId,
+        groupId: chatId.toString(),
+        userName: currentUserName
+      });
+    }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      // Typing stops automatically
+      handleTypingStop();
     }, 2000);
-  }, [currentUserId, chatId, chatType]);
+  }, [currentUserId, chatId, chatType, currentUserName]);
 
   const handleTypingStop = useCallback(() => {
     const socket = socketRef.current;
-    if (!socket || chatType !== 'user') return;
+    if (!socket) return;
 
-    socket.emit('typing_stop', {
-      fromUserId: currentUserId,
-      toUserId: chatId.toString()
-    });
+    if (chatType === 'user') {
+      socket.emit('typing_stop', {
+        fromUserId: currentUserId,
+        toUserId: chatId.toString()
+      });
+    } else if (chatType === 'group') {
+      socket.emit('group_typing_stop', {
+        fromUserId: currentUserId,
+        groupId: chatId.toString()
+      });
+    }
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
   }, [currentUserId, chatId, chatType]);
 
@@ -614,7 +694,7 @@ export const ChatWindow = ({
       return;
     }
     setMessageText(value);
-    if (value.trim() && chatType === 'user') handleTypingStart();
+    if (value.trim()) handleTypingStart();
     else if (!value.trim()) handleTypingStop();
   };
 
@@ -733,6 +813,7 @@ export const ChatWindow = ({
         return;
       }
     };
+
     setMessages(prev => [...prev, tempMessage]);
     setTimeout(() => scrollToBottom(true), 50);
 
@@ -750,7 +831,7 @@ export const ChatWindow = ({
 
     console.log('📤 Sending message via Socket.IO:', payload);
     socketRef.current.emit('handleSendMessage', payload);
-    console.log("Ok");
+
     setMessageText("");
     setFiles([]);
     handleTypingStop();
@@ -865,14 +946,31 @@ export const ChatWindow = ({
     return onlineUsers.find(u => String(u.userId) === String(chatId)) || null;
   };
 
+  // Get group typing status text
+  const getGroupTypingText = () => {
+    const typingUsersArray = Array.from(groupUsersTyping.entries());
+    if (typingUsersArray.length === 0) return null;
+
+    if (typingUsersArray.length === 1) {
+      return `${typingUsersArray[0][1]} is typing...`;
+    } else if (typingUsersArray.length === 2) {
+      return `${typingUsersArray[0][1]} and ${typingUsersArray[1][1]} are typing...`;
+    } else {
+      return `${typingUsersArray[0][1]} and ${typingUsersArray.length - 1} others are typing...`;
+    }
+  };
+
   const userStatus = getUserStatus();
   const isUserOnline = userStatus?.status === 'online';
+  const groupTypingText = getGroupTypingText();
+
   const filteredMessages = searchTerm
     ? messages.filter(msg =>
       msg.messageText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       msg.files?.some(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()))
     )
     : messages;
+
   const filteredGroupedMessages = useMemo((): DateGroupedMessages => {
     const groups: DateGroupedMessages = {};
 
@@ -1853,6 +1951,31 @@ export const ChatWindow = ({
           font-weight: 500;
         }
         
+        /* Group Typing Indicator */
+        .group-typing-indicator {
+          padding: 4px 12px;
+          font-size: 12px;
+          color: #6b7280;
+          font-style: italic;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #f3f4f6;
+          border-radius: 12px;
+          margin-bottom: 8px;
+        }
+        
+        /* Group Badge */
+        .group-badge {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 6px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 12px;
+          font-size: 11px;
+        }
+        
         /* Responsive */
         @media (max-width: 480px) {
           .chat-window-container {
@@ -1887,15 +2010,19 @@ export const ChatWindow = ({
               <div className="chat-status">
                 {chatType === "user" && (
                   <>
-                    {/* <div className={`status-dot ${isUserOnline ? 'online' : 'offline'}`} /> */}
-                    {/* {isUserOnline ? 'Online' : 'Offline'} */}
+                    <div className={`status-dot ${isUserOnline ? 'online' : 'offline'}`} />
+                    {isUserOnline ? 'Online' : 'Offline'}
                     {otherUserTyping && <span className="typing-indicator"> - typing...</span>}
                   </>
                 )}
                 {chatType === "group" && (
                   <>
                     <div className="status-dot group" />
-                    Group Chat
+                    <div className="group-badge">
+                      <UsersIcon />
+                      <span>Group Chat</span>
+                    </div>
+                    {groupTypingText && <span className="typing-indicator"> - {groupTypingText}</span>}
                   </>
                 )}
               </div>
@@ -1905,13 +2032,13 @@ export const ChatWindow = ({
             <button className="header-button" onClick={() => setIsSearchOpen(!isSearchOpen)}>
               <SearchIcon />
             </button>
-            {/* <div className={`connection-status ${connectionStatus === 'connected' ? 'status-connected' :
+            <div className={`connection-status ${connectionStatus === 'connected' ? 'status-connected' :
               connectionStatus === 'connecting' ? 'status-connecting' :
                 'status-disconnected'
               }`}>
               {connectionStatus === 'connected' ? '●' :
                 connectionStatus === 'connecting' ? '⟳' : '●'}
-            </div> */}
+            </div>
             <button className="header-button close" onClick={onClose}>
               <XIcon />
             </button>
@@ -1975,6 +2102,13 @@ export const ChatWindow = ({
                     </div>
                   </div>
 
+                  {/* Group typing indicator */}
+                  {chatType === 'group' && groupTypingText && (
+                    <div className="group-typing-indicator">
+                      <span>{groupTypingText}</span>
+                    </div>
+                  )}
+
                   {/* Messages for this date */}
                   {filteredGroupedMessages[dateKey].map((message) => {
                     return (
@@ -2013,15 +2147,21 @@ export const ChatWindow = ({
                         ) : (
                           <div className={`message-bubble-wrapper ${String(message.fromUserId) === String(currentUserId) ? 'own' : 'other'}`}>
                             <div className={`message-bubble ${String(message.fromUserId) === String(currentUserId) ? 'own' : 'other'} ${message.isSending ? 'message-sending' : ''}`}>
-                              {message.senderName && String(message.fromUserId) !== String(currentUserId) && (
-                                <div className="message-sender">{message.senderName}</div>
+                              {chatType === 'group' && String(message.fromUserId) !== String(currentUserId) && (
+                                <div className="message-sender">{message.senderName || `User ${message.fromUserId}`}</div>
                               )}
 
-                              {message.messageText && (
+                              {message.messageText && !message.isDeleted && (
                                 <div className="message-text">{message.messageText}</div>
                               )}
 
-                              {message.files && message.files.length > 0 && (
+                              {message.isDeleted && (
+                                <div className="message-text" style={{ opacity: 0.6, fontStyle: 'italic' }}>
+                                  {message.messageText || "Your message deleted."}
+                                </div>
+                              )}
+
+                              {!message.isDeleted && message.files && message.files.length > 0 && (
                                 <div className="files-container">
                                   {message.files.map((file, index) => (
                                     <div
@@ -2065,7 +2205,6 @@ export const ChatWindow = ({
                             </div>
 
                             {/* Message Menu - Show only for own messages */}
-
                             {String(message.fromUserId) === String(currentUserId) && !message.isSending && !message.isDeleted && (
                               <div className="message-menu-container">
                                 <button
@@ -2209,7 +2348,7 @@ export const ChatWindow = ({
                 multiple
               />
             </label>
-            {/* <label className={`attachment-label ${isUploading ? 'disabled' : ''}`}>
+            <label className={`attachment-label ${isUploading ? 'disabled' : ''}`}>
               <ImageIcon />
               <span>Image</span>
               <input
@@ -2221,7 +2360,7 @@ export const ChatWindow = ({
                 disabled={isUploading}
                 multiple
               />
-            </label> */}
+            </label>
           </div>
         </div>
 
