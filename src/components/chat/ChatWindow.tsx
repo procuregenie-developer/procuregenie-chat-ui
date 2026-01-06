@@ -30,6 +30,7 @@ interface Message {
   createdAt: string;
   updatedAt?: string;
   isEdited?: boolean;
+  isDeleted?: boolean;
   isRead?: boolean;
   senderName?: string;
   tempId?: string;
@@ -240,6 +241,7 @@ export const ChatWindow = ({
         createdAt: msg.createdAt,
         updatedAt: msg.updatedAt,
         isEdited: msg.updatedAt !== msg.createdAt,
+        isDeleted: msg.isDeleted,
         isRead: true,
         senderName: msg.senderName
       }));
@@ -337,7 +339,6 @@ export const ChatWindow = ({
     if (!currentUserId || !currentUserName || !chatId) return;
 
     setConnectionStatus('connecting');
-    console.log(DeployeeParams);
 
 
     socketRef.current = socket;
@@ -490,7 +491,15 @@ export const ChatWindow = ({
 
     socket.on('message_deleted', (data: { messageId: string }) => {
       console.log('🗑️ Message deleted received:', data);
-      setMessages(prev => prev.filter(msg => msg.id !== data.messageId));
+
+      setMessages(prev => prev.filter((msg) => {
+        if (msg.id == data.messageId) {
+          msg.files = [];
+          msg.messageText = "Your message deleted."
+          msg.isDeleted=true;
+        };
+        return msg;
+      }));
     });
 
     socket.on('message_error', (data: { error: string; tempId?: string }) => {
@@ -2056,7 +2065,8 @@ export const ChatWindow = ({
                             </div>
 
                             {/* Message Menu - Show only for own messages */}
-                            {String(message.fromUserId) === String(currentUserId) && !message.isSending && (
+
+                            {String(message.fromUserId) === String(currentUserId) && !message.isSending && !message.isDeleted && (
                               <div className="message-menu-container">
                                 <button
                                   className={`message-menu-button ${menuOpenId === message.id ? 'active' : ''}`}
