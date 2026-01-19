@@ -1,6 +1,6 @@
 {
   "name": "chatbortui",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Chat application.",
   "author": "Nayak vishwam",
   "license": "MIT",
@@ -14,6 +14,9 @@
       "types": "./dist/index.d.ts",
       "style": "./dist/index.css"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist"
