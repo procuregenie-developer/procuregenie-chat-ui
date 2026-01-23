@@ -24,6 +24,7 @@ interface UserType {
   role: string;
   online: boolean;
   lastMessage?: string;
+  messageExists?: boolean;
   avatar?: string;
   lastSeen?: string;
   isActive?: boolean;
@@ -194,7 +195,7 @@ export const ChatList = ({
           setUsers(usersList);
           if (userView === 'chatted' && !search) {
             const frequent = usersList
-              .filter((user: UserType) => user.lastMessage)
+              .filter((user: UserType) => user.messageExists)
               .slice(0, 3);
             setFrequentContacts(frequent);
           } else {
